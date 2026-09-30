@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부서 점심 쏘기 룰렛 게임 🍕</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        /* Pointer Bounce Animation */
+        @keyframes pointerTick {
+            0% { transform: translateX(-50%) rotate(0deg); }
+            50% { transform: translateX(-50%) rotate(-20deg); }
+            100% { transform: translateX(-50%) rotate(0deg); }
+        }
+
+        .pointer-ticking {
+            animation: pointerTick 0.08s ease-in-out;
+            transform-origin: top center;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-5xl w-full bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border border-white/50 relative">
+        
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 p-6 text-white text-center shadow-md relative">
+            <!-- Mute/Sound Toggle Button -->
+            <button id="soundToggleBtn" onclick="toggleSound()" class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 backdrop-blur-sm transition-all focus:outline-none flex items-center justify-center" title="소리 켜기/끄기">
+                <i id="soundIcon" class="fa-solid fa-volume-high text-lg"></i>
+            </button>
+
+            <!-- Mode Indicator Badge -->
+            <div id="modeBadge" class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold tracking-wider mb-2">
+                STAGE 1: 쏘는 사람 뽑기 🎯
+            </div>
+
+            <h1 id="headerTitle" class="text-3xl md:text-4xl font-extrabold tracking-tight flex items-center justify-center gap-3">
+                <i class="fa-solid fa-utensils"></i>
+                오늘 점심은 누가 쏠까?
+            </h1>
+            <p id="headerSubtitle" class="mt-2 text-orange-100 font-medium text-sm md:text-base">
+                공정한 바이브 코딩 룰렛으로 결정하는 운명의 점심시간!
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 md:p-8 items-start">
+            
+            <!-- Left Side: Roulette Wheel Section -->
+            <div class="lg:col-span-7 flex flex-col items-center justify-center relative">
+                
+                <!-- Wheel Canvas Container -->
+                <div class="relative w-full max-w-[420px] aspect-square flex items-center justify-center my-2">
+                    
+                    <!-- Top Pointer -->
+                    <div id="pointer" class="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-10 h-12 flex justify-center drop-shadow-md">
+                        <div class="w-0 h-0 border-l-[18px] border-l-transparent border-r-[18px] border-r-transparent border-t-[32px] border-t-red-600"></div>
+                    </div>
+
+                    <!-- Canvas Wheel -->
+                    <canvas id="rouletteCanvas" class="w-full h-full drop-shadow-xl rounded-full border-4 border-white"></canvas>
+                    
+                    <!-- Center Decorative Button/Cap -->
+                    <div class="absolute w-16 h-16 bg-white rounded-full shadow-inner flex items-center justify-center border-4 border-amber-400 z-10">
+                        <i id="centerIcon" class="fa-solid fa-crown text-amber-500 text-xl"></i>
+                    </div>
+                </div>
+
+                <button id="spinBtn" onclick="spinWheel()" class="mt-6 w-full max-w-xs py-4 px-8 bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 hover:from-red-600 hover:to-amber-600 text-white font-extrabold text-xl rounded-2xl shadow-lg hover:shadow-orange-500/30 transform active:scale-95 transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer">
+                    <i class="fa-solid fa-rotate text-2xl"></i>
+                    <span id="spinBtnText">사람 룰렛 돌리기!</span>
+                </button>
+            </div>
+
+            <!-- Right Side: Side Panel (Switchable between Names / Menu control) -->
+            <div class="lg:col-span-5 bg-slate-50/80 p-6 rounded-2xl border border-slate-200 flex flex-col h-full justify-between shadow-inner">
+                
+                <!-- Panel 1: Name Management (Stage 1) -->
+                <div id="personPanel">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-users text-amber-500"></i>
+                            참가자 목록 (<span id="participantCount" class="text-orange-600">0</span>명)
+                        </h2>
+                        <button onclick="resetParticipants()" class="text-xs text-slate-500 hover:text-red-500 transition-colors flex items-center gap-1 font-semibold">
+                            <i class="fa-solid fa-arrow-rotate-left"></i> 초기화
+                        </button>
+                    </div>
+
+                    <!-- Input Box -->
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="nameInput" placeholder="이름 입력 (예: 김철수)" 
+                            class="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-slate-700 bg-white shadow-sm font-medium"
+                            onkeypress="handleKeyPress(event)">
+                        <button onclick="addName()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-5 py-3 rounded-xl shadow transition-all duration-150 flex items-center gap-1 whitespace-nowrap">
+                            <i class="fa-solid fa-plus"></i> 추가
+                        </button>
+                    </div>
+
+                    <div id="nameList" class="flex flex-wrap gap-2 max-h-[260px] overflow-y-auto p-2 bg-white rounded-xl border border-slate-200 shadow-sm min-h-[120px]">
+                        <!-- Dynamic Participant Chips -->
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-200 text-xs text-slate-500">
+                        <div class="flex items-center gap-1 font-semibold text-slate-600 mb-1">
+                            <i class="fa-solid fa-lightbulb text-amber-500"></i> 안내:
+                        </div>
+                        <p>당첨자가 뽑히면 '당첨자 확인' 버튼을 통해 추천 점심 메뉴 룰렛 단계로 전환됩니다.</p>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Menu Management (Stage 2) -->
+                <div id="menuPanel" class="hidden flex flex-col justify-between h-full">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-bowl-food text-orange-500"></i>
+                                오늘의 추천 메뉴 5선
+                            </h2>
+                            <button onclick="refreshRandomMenus()" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 font-bold">
+                                <i class="fa-solid fa-arrows-rotate"></i> 메뉴 새로고침
+                            </button>
+                        </div>
+
+                        <!-- Current Winner Banner -->
+                        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-center">
+                            <span class="text-xs text-amber-700 font-semibold block">선택된 당첨자</span>
+                            <span id="selectedWinnerDisplay" class="text-xl font-extrabold text-amber-900">김철수 님</span>
+                        </div>
+
+                        <div id="menuList" class="space-y-2 mb-4">
+                            <!-- Dynamic 5 Menu Items List -->
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-200">
+                        <button onclick="switchMode('person')" class="w-full py-2.5 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-arrow-left"></i> 사람 뽑기로 돌아가기
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage 1 Winner Modal -->
+    <div id="winnerModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div id="winnerModalCard" class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-90 transition-transform duration-300 border-4 border-amber-400 relative overflow-hidden">
+            
+            <div class="absolute -right-8 -top-8 w-24 h-24 bg-yellow-200/50 rounded-full blur-xl"></div>
+            <div class="absolute -left-8 -bottom-8 w-24 h-24 bg-orange-200/50 rounded-full blur-xl"></div>
+
+            <div class="text-5xl mb-3">🎉</div>
+            <h3 class="text-sm font-bold text-orange-500 uppercase tracking-widest mb-1">오늘 점심 당첨자</h3>
+            <div id="winnerName" class="text-4xl font-black text-slate-800 my-3 tracking-tight">
+                김철수
+            </div>
+            <p class="text-slate-600 font-medium text-sm mb-6">
+                축하합니다! 👏<br>이제 오늘 무엇을 쏠지 메뉴를 정하러 가볼까요?
+            </p>
+
+            <button onclick="confirmWinnerAndGoToMenu()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-lg rounded-xl shadow-lg transition-all duration-150 transform active:scale-95 flex items-center justify-center gap-2">
+                <span>당첨자 확인 (메뉴 룰렛으로!)</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Stage 2 Menu Result Modal -->
+    <div id="menuResultModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div id="menuResultModalCard" class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-90 transition-transform duration-300 border-4 border-red-500 relative overflow-hidden">
+            
+            <div class="text-5xl mb-3">🍱</div>
+            <h3 class="text-sm font-bold text-red-500 uppercase tracking-widest mb-1">오늘의 점심 메뉴 확정!</h3>
+            <div id="finalMenuName" class="text-3xl font-black text-slate-800 my-3 tracking-tight">
+                돈까스
+            </div>
+            <p id="finalAnnouncementText" class="text-slate-600 font-medium text-sm mb-6">
+                김철수 님! 오늘 맛있는 점심 잘 먹겠습니다! 😋
+            </p>
+
+            <button onclick="closeMenuResultModal()" class="w-full py-3.5 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-lg transition-all duration-150 transform active:scale-95">
+                완료 및 맛있게 먹기!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Color Palette
+        const sliceColors = [
+            "#FF6B6B", "#4ECDC4", "#FFE66D", "#1A535C", 
+            "#FF9F1C", "#2EC4B6", "#E71D36", "#FF9F1C", 
+            "#9B5DE5", "#F15BB5", "#00BBF9", "#00F5D4"
+        ];
+
+        // All Preset Menu Options (15 Lunch Favorites)
+        const allMenuPool = [
+            "짜장면/짬뽕 🍜", "김치찌개 🍲", "돈까스 🥩", "초밥/회덮밥 🍣", 
+            "제육볶음 🥩", "파스타/피자 🍝", "햄버거 🍔", "순대국/국밥 🥣", 
+            "쌀국수 🍜", "샌드위치 🥪", "떡볶이 떡", "마라탕 🌶️", 
+            "카레라이스 🍛", "비빔밥 🥗", "부대찌개 🥘"
+        ];
+
+        // Global State Variables
+        let currentMode = "person"; // 'person' or 'menu'
+        let names = ["김철수", "이영희", "박민수", "정수진", "최동현"];
+        let currentFiveMenus = [];
+        let selectedWinner = "김철수";
+
+        let canvas, ctx;
+        let startAngle = 0;
+        let isSpinning = false;
+        let currentRotation = 0;
+        let previousSliceIndex = -1;
+        let isMuted = false;
+
+        // Web Audio API Context
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function toggleSound() {
+            isMuted = !isMuted;
+            const soundIcon = document.getElementById("soundIcon");
+            if (isMuted) {
+                soundIcon.className = "fa-solid fa-volume-xmark text-lg text-red-200";
+            } else {
+                soundIcon.className = "fa-solid fa-volume-high text-lg";
+                playTickSound();
+            }
+        }
+
+        // Sound Effect: Tick Sound
+        function playTickSound() {
+            if (isMuted) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(650, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.04);
+
+                gain.gain.setValueAtTime(0.18, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.04);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.04);
+            } catch (e) {}
+        }
+
+        // Sound Effect: Upgrade - Rich Trumpet Fanfare (빵빠레) Sound
+        function playFanfareSound() {
+            if (isMuted) return;
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                // Classic Brass Fanfare Sequence: G4, C5, E5, G5 (Hold longer)
+                const sequence = [
+                    { freq: 392.00, time: 0.00, duration: 0.12 }, // G4
+                    { freq: 523.25, time: 0.12, duration: 0.12 }, // C5
+                    { freq: 659.25, time: 0.24, duration: 0.12 }, // E5
+                    { freq: 783.99, time: 0.36, duration: 0.50 }, // G5 (Hold)
+                    { freq: 659.25, time: 0.65, duration: 0.12 }, // E5
+                    { freq: 783.99, time: 0.77, duration: 0.70 }  // G5 (Final big note)
+                ];
+
+                sequence.forEach(note => {
+                    // Create 2 oscillators per note for rich brass synthesis timbre
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'triangle';
+
+                    osc1.frequency.setValueAtTime(note.freq, now + note.time);
+                    osc2.frequency.setValueAtTime(note.freq * 1.002, now + note.time); // subtle detune
+
+                    const noteStart = now + note.time;
+                    const noteEnd = noteStart + note.duration;
+
+                    gain.gain.setValueAtTime(0, noteStart);
+                    gain.gain.linearRampToValueAtTime(0.25, noteStart + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, noteEnd);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc1.start(noteStart);
+                    osc2.start(noteStart);
+                    osc1.stop(noteEnd);
+                    osc2.stop(noteEnd);
+                });
+            } catch (e) {}
+        }
+
+        // Initialize App
+        window.onload = function () {
+            canvas = document.getElementById("rouletteCanvas");
+            ctx = canvas.getContext("2d");
+            
+            getRandomFiveMenus();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            renderNameList();
+            renderMenuList();
+            drawRoulette();
+        };
+
+        function getRandomFiveMenus() {
+            const shuffled = [...allMenuPool].sort(() => 0.5 - Math.random());
+            currentFiveMenus = shuffled.slice(0, 5);
+        }
+
+        function refreshRandomMenus() {
+            if (isSpinning) return;
+            getRandomFiveMenus();
+            renderMenuList();
+            drawRoulette();
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const size = container.clientWidth;
+            canvas.width = size * 2; // HiDPI
+            canvas.height = size * 2;
+            drawRoulette();
+        }
+
+        // Switch between Person Roulette and Menu Roulette Mode
+        function switchMode(mode) {
+            if (isSpinning) return;
+            currentMode = mode;
+            currentRotation = 0;
+            startAngle = 0;
+
+            const modeBadge = document.getElementById("modeBadge");
+            const headerTitle = document.getElementById("headerTitle");
+            const headerSubtitle = document.getElementById("headerSubtitle");
+            const spinBtnText = document.getElementById("spinBtnText");
+            const centerIcon = document.getElementById("centerIcon");
+            
+            const personPanel = document.getElementById("personPanel");
+            const menuPanel = document.getElementById("menuPanel");
+
+            if (mode === 'person') {
+                modeBadge.innerText = "STAGE 1: 쏘는 사람 뽑기 🎯";
+                headerTitle.innerHTML = `<i class="fa-solid fa-utensils"></i> 오늘 점심은 누가 쏠까?`;
+                headerSubtitle.innerText = "공정한 바이브 코딩 룰렛으로 결정하는 운명의 점심시간!";
+                spinBtnText.innerText = "사람 룰렛 돌리기!";
+                centerIcon.className = "fa-solid fa-crown text-amber-500 text-xl";
+
+                personPanel.classList.remove("hidden");
+                menuPanel.classList.add("hidden");
+            } else {
+                modeBadge.innerText = "STAGE 2: 점심 메뉴 뽑기 🍱";
+                headerTitle.innerHTML = `<i class="fa-solid fa-burger"></i> 무엇을 먹을까?`;
+                headerSubtitle.innerText = `${selectedWinner} 님이 쏠 메뉴를 룰렛으로 결정해 보세요!`;
+                spinBtnText.innerText = "메뉴 룰렛 돌리기!";
+                centerIcon.className = "fa-solid fa-utensils text-orange-500 text-xl";
+
+                personPanel.classList.add("hidden");
+                menuPanel.classList.remove("hidden");
+                document.getElementById("selectedWinnerDisplay").innerText = selectedWinner + " 님";
+            }
+
+            drawRoulette();
+        }
+
+        function drawRoulette() {
+            if (!ctx) return;
+            
+            const items = (currentMode === 'person') ? names : currentFiveMenus;
+            const numSlices = items.length;
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = width / 2 - 16;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (numSlices === 0) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = "#E2E8F0";
+                ctx.fill();
+                ctx.strokeStyle = "#CBD5E1";
+                ctx.lineWidth = 8;
+                ctx.stroke();
+
+                ctx.fillStyle = "#64748B";
+                ctx.font = "bold 32px 'Noto Sans KR', sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("항목을 추가해 주세요", centerX, centerY);
+                return;
+            }
+
+            const sliceAngle = (2 * Math.PI) / numSlices;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(currentRotation);
+
+            for (let i = 0; i < numSlices; i++) {
+                const angle = i * sliceAngle;
+                
+                // Draw sector
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, angle, angle + sliceAngle);
+                ctx.closePath();
+                
+                ctx.fillStyle = sliceColors[i % sliceColors.length];
+                ctx.fill();
+                ctx.strokeStyle = "#FFFFFF";
+                ctx.lineWidth = 6;
+                ctx.stroke();
+
+                // Draw Text CENTERED inside each sector
+                ctx.save();
+                const midAngle = angle + sliceAngle / 2;
+                
+                // Position text at center of radial sector (58% of radius)
+                const textDist = radius * 0.58;
+                const textX = Math.cos(midAngle) * textDist;
+                const textY = Math.sin(midAngle) * textDist;
+
+                ctx.translate(textX, textY);
+                ctx.rotate(midAngle + Math.PI / 2);
+
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#FFFFFF";
+                
+                // --- 2X ENLARGED FONT SIZE ---
+                // Base font size is doubled from ~18px to ~36px (or scaled appropriately for slice count)
+                let baseFontSize = 42; 
+                if (currentMode === 'person') {
+                    baseFontSize = Math.max(28, Math.min(48, 380 / numSlices));
+                } else {
+                    baseFontSize = 32; // Menu item text
+                }
+
+                ctx.font = `900 ${baseFontSize}px 'Noto Sans KR', sans-serif`;
+                
+                // Drop shadow for legibility
+                ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+                ctx.shadowBlur = 6;
+                
+                ctx.fillText(items[i], 0, 0);
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function renderNameList() {
+            const nameListContainer = document.getElementById("nameList");
+            const countDisplay = document.getElementById("participantCount");
+            
+            nameListContainer.innerHTML = "";
+            countDisplay.innerText = names.length;
+
+            names.forEach((name, index) => {
+                const tag = document.createElement("div");
+                tag.className = "flex items-center gap-2 bg-slate-100 hover:bg-orange-50 text-slate-800 font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-sm transition-all duration-150 group";
+                tag.innerHTML = `
+                    <span>${escapeHtml(name)}</span>
+                    <button onclick="removeName(${index})" class="text-slate-400 group-hover:text-red-500 transition-colors focus:outline-none" title="삭제">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                nameListContainer.appendChild(tag);
+            });
+
+            if (currentMode === 'person') drawRoulette();
+        }
+
+        function renderMenuList() {
+            const menuListContainer = document.getElementById("menuList");
+            menuListContainer.innerHTML = "";
+
+            currentFiveMenus.forEach((menu, index) => {
+                const card = document.createElement("div");
+                card.className = "flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm font-bold text-slate-700";
+                card.innerHTML = `
+                    <span class="w-6 h-6 rounded-full bg-orange-100 text-orange-600 text-xs flex items-center justify-center font-black">${index + 1}</span>
+                    <span>${escapeHtml(menu)}</span>
+                `;
+                menuListContainer.appendChild(card);
+            });
+
+            if (currentMode === 'menu') drawRoulette();
+        }
+
+        function addName() {
+            const input = document.getElementById("nameInput");
+            const name = input.value.trim();
+
+            if (!name) return;
+            
+            if (names.length >= 20) {
+                alert("최대 20명까지 등록 가능합니다.");
+                return;
+            }
+
+            names.push(name);
+            input.value = "";
+            renderNameList();
+        }
+
+        function removeName(index) {
+            if (isSpinning) return;
+            names.splice(index, 1);
+            renderNameList();
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === "Enter") {
+                addName();
+            }
+        }
+
+        function resetParticipants() {
+            if (isSpinning) return;
+            names = ["김철수", "이영희", "박민수", "정수진", "최동현"];
+            renderNameList();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+
+            const items = (currentMode === 'person') ? names : currentFiveMenus;
+            if (items.length < 2) {
+                alert("최소 2개 이상의 항목이 필요합니다!");
+                return;
+            }
+
+            getAudioContext();
+
+            isSpinning = true;
+            document.getElementById("spinBtn").disabled = true;
+            document.getElementById("spinBtn").classList.add("opacity-50", "cursor-not-allowed");
+
+            const numSlices = items.length;
+            const sliceAngle = (2 * Math.PI) / numSlices;
+            const totalRotations = 5 + Math.random() * 5; 
+            const targetRotation = currentRotation + (totalRotations * 2 * Math.PI);
+
+            const startTime = performance.now();
+            const spinDuration = 4500;
+
+            function animateSpin(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / spinDuration, 1);
+
+                const easeOut = 1 - Math.pow(1 - progress, 4);
+                
+                currentRotation = startAngle + (targetRotation - startAngle) * easeOut;
+                drawRoulette();
+
+                const normalizedAngle = (2 * Math.PI - (currentRotation % (2 * Math.PI))) % (2 * Math.PI);
+                const adjustedAngle = (normalizedAngle + Math.PI / 2) % (2 * Math.PI);
+                const currentSliceIndex = Math.floor(adjustedAngle / sliceAngle);
+
+                if (currentSliceIndex !== previousSliceIndex) {
+                    triggerPointerTick();
+                    playTickSound();
+                    previousSliceIndex = currentSliceIndex;
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    startAngle = currentRotation % (2 * Math.PI);
+                    isSpinning = false;
+                    document.getElementById("spinBtn").disabled = false;
+                    document.getElementById("spinBtn").classList.remove("opacity-50", "cursor-not-allowed");
+
+                    const winnerIndex = currentSliceIndex % numSlices;
+                    
+                    if (currentMode === 'person') {
+                        selectedWinner = names[winnerIndex];
+                        announcePersonWinner(selectedWinner);
+                    } else {
+                        announceMenuWinner(currentFiveMenus[winnerIndex]);
+                    }
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        function triggerPointerTick() {
+            const pointer = document.getElementById("pointer");
+            pointer.classList.remove("pointer-ticking");
+            void pointer.offsetWidth;
+            pointer.classList.add("pointer-ticking");
+        }
+
+        // Announce Person Winner
+        function announcePersonWinner(winnerName) {
+            playFanfareSound();
+
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+
+            const modal = document.getElementById("winnerModal");
+            const modalCard = document.getElementById("winnerModalCard");
+            document.getElementById("winnerName").innerText = winnerName + " 님";
+
+            modal.classList.remove("opacity-0", "pointer-events-none");
+            modalCard.classList.remove("scale-90");
+            modalCard.classList.add("scale-100");
+        }
+
+        // Confirm winner and transit to Stage 2 (Menu Selection)
+        function confirmWinnerAndGoToMenu() {
+            const modal = document.getElementById("winnerModal");
+            const modalCard = document.getElementById("winnerModalCard");
+
+            modalCard.classList.remove("scale-100");
+            modalCard.classList.add("scale-90");
+            modal.classList.add("opacity-0", "pointer-events-none");
+
+            // Switch view to Menu mode
+            switchMode('menu');
+        }
+
+        // Announce Menu Result
+        function announceMenuWinner(menuName) {
+            playFanfareSound();
+
+            confetti({
+                particleCount: 150,
+                spread: 100,
+                origin: { y: 0.6 }
+            });
+
+            const modal = document.getElementById("menuResultModal");
+            const modalCard = document.getElementById("menuResultModalCard");
+            document.getElementById("finalMenuName").innerText = menuName;
+            document.getElementById("finalAnnouncementText").innerText = `${selectedWinner} 님! 오늘 맛있는 ${menuName} 잘 먹겠습니다! 😋`;
+
+            modal.classList.remove("opacity-0", "pointer-events-none");
+            modalCard.classList.remove("scale-90");
+            modalCard.classList.add("scale-100");
+        }
+
+        function closeMenuResultModal() {
+            const modal = document.getElementById("menuResultModal");
+            const modalCard = document.getElementById("menuResultModalCard");
+
+            modalCard.classList.remove("scale-100");
+            modalCard.classList.add("scale-90");
+            modal.classList.add("opacity-0", "pointer-events-none");
+        }
+    </script>
+</body>
+</html>
